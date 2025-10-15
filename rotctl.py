@@ -50,6 +50,9 @@ class ROTCTL:
     NORTH_EAST = "0"
     SOUTH_WEST = "1"
 
+    # Precision parameter
+    EPS = 1
+
     def __init__(self, model=1, device="/dev/ttyUSB0", timeout=3):
         cmd = f"rotctl -m {model} -r {device}"
         self.child = pexpect.spawn(cmd, encoding="utf-8", timeout=timeout)
@@ -107,7 +110,12 @@ class ROTCTL:
         Note: Not all backends that implement the move command use the Speed value.
         """
         try:
-            return self.send(f"M {dir} {speed}")
+            start_pos = tools.parse_pos(self.get_pos())
+            a = self.send(f"M {dir} {speed}")
+            while tools.dist4tuple(start_pos, tools.parse_pos(self.get_pos())) < self.EPS:
+                pass
+            self.stop()
+            return a
         except Exception:
             return False
         
@@ -277,3 +285,7 @@ class tools:
         el = data[1].split(" ")[-1]
 
         return float(az), float(el)
+    
+    @staticmethod
+    def dist4tuple(a, b):
+        return ((a[0] - b[0])**2 + (a[1] - b[1])**2)**1/2
