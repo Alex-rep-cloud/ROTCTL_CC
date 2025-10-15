@@ -1,67 +1,81 @@
 import tkinter as tk
 from tkinter import ttk
+import threading
+import time
 from rotctl import *
 
-# Create a rotctl instance
-rotor = ROTCTL()
+class RotatorGUI(tk.Tk):
+    def __init__(self, model=1, device="/dev/ttyUSB0"):
+        super().__init__()
+        self.title("ROTCTL Control Center")
+        self.geometry("600x200")
+        self.resizable(False, False)
 
-def dumb(*args):
-    pass
+        self.rot = ROTCTL(model=model, device=device)
 
-def move_btn(dir):
-    if dir == "UP":
-        rotor.move(ROTCTL.UP, 10)
-    if dir == "DOWN":
-        rotor.move(ROTCTL.DOWN, 10)
-    if dir == "LEFT":
-        rotor.move(ROTCTL.LEFT, 10)
-    if dir == "RIGHT":
-        rotor.move(ROTCTL.RIGHT, 10)
-    print(rotor.get_pos())
+        self.az_var = tk.DoubleVar(value=0.0)
+        self.el_var = tk.DoubleVar(value=0.0)
 
-# Create the main window
-root = tk.Tk()
-root.title("Simple GUI Example")
-root.geometry("800x150")
+        self._build_ui()
 
-# Configure grid layout
-root.columnconfigure(0, weight=2)
-root.columnconfigure(1, weight=2)
-root.columnconfigure(2, weight=2)
+        self._running = True
+        threading.Thread(target=self._update_loop, daemon=True).start()
 
-# Left frame for labels and entries
-left_frame = ttk.Frame(root, padding=10)
-left_frame.grid(row=0, column=0, sticky="nsew")
+    def _build_ui(self):
+        frm = ttk.Frame(self, padding=20)
+        frm.pack(fill="both", expand=True)
 
-# Right frame for buttons
-right_frame = ttk.Frame(root, padding=10)
-right_frame.grid(row=0, column=1, sticky="ns")
+        left = ttk.Frame(frm)
+        left.grid(row=0, column=0, sticky="nsew")
 
-# Azimuth
-label1 = ttk.Label(left_frame, text="Azimuth :")
-label1.grid(row=0, column=0, sticky="w", pady=5)
-entry1 = ttk.Entry(left_frame, width=25)
-entry1.grid(row=0, column=1, pady=5)
-btn = ttk.Button(left_frame, text="Send", command=lambda n="Send": dumb(n))
-btn.grid(row=0, column=2, sticky="ew", pady=5)
+        ttk.Label(left, text="Azimuth (°)", font=("Arial", 12)).grid(row=0, column=0, sticky="w", pady=(0, 5))
+        self.az_entry = ttk.Entry(left, textvariable=self.az_var, width=10)
+        self.az_entry.grid(row=0, column=1, sticky="w", padx=5)
+        self.az_label = ttk.Label(left, text="Lecture: 0.0°", font=("Arial", 10))
+        self.az_label.grid(row=0, column=2, padx=10)
 
-# Elevation
-label2 = ttk.Label(left_frame, text="Elevation :")
-label2.grid(row=1, column=0, sticky="w", pady=5)
-entry2 = ttk.Entry(left_frame, width=25)
-entry2.grid(row=1, column=1, pady=5)
-btn = ttk.Button(left_frame, text="Send", command=lambda n="Send": dumb(n))
-btn.grid(row=1, column=2, sticky="ew", pady=5)
+        ttk.Label(left, text="Élévation (°)", font=("Arial", 12)).grid(row=1, column=0, sticky="w", pady=(10, 5))
+        self.el_entry = ttk.Entry(left, textvariable=self.el_var, width=10)
+        self.el_entry.grid(row=1, column=1, sticky="w", padx=5)
+        self.el_label = ttk.Label(left, text="Lecture: 0.0°", font=("Arial", 10))
+        self.el_label.grid(row=1, column=2, padx=10)
 
-# 4 directions cardinales
-btn = ttk.Button(right_frame, text="UP", command=lambda n="UP": move_btn(n))
-btn.grid(row=0, column=1, sticky="ew", pady=5)
-btn = ttk.Button(right_frame, text="LEFT", command=lambda n="LEFT": move_btn(n))
-btn.grid(row=1, column=0, sticky="ew", pady=5)
-btn = ttk.Button(right_frame, text="RIGHT", command=lambda n="RIGHT": move_btn(n))
-btn.grid(row=1, column=2, sticky="ew", pady=5)
-btn = ttk.Button(right_frame, text="DOWN", command=lambda n="DOWN": move_btn(n))
-btn.grid(row=2, column=1, sticky="ew", pady=5)
+        ttk.Button(left, text="Envoyer position", command=lambda: self.rot.set_pos(self.az_var.get(), self.el_var.get())).grid(row=2, column=0, columnspan=3, pady=20, sticky="ew")
 
-# Run the GUI
-root.mainloop()
+        right = ttk.Frame(frm)
+        right.grid(row=0, column=1, padx=20, sticky="nsew")
+
+        speed = 5.0
+        ttk.Button(right, text="↑", width=5, command=lambda: self.rot.move(ROTCTL.UP, speed)).grid(row=0, column=1, pady=5)
+        ttk.Button(right, text="←", width=5, command=lambda: self.rot.move(ROTCTL.LEFT, speed)).grid(row=1, column=0, padx=5)
+        ttk.Button(right, text="Stop", width=5, command=self.rot.stop).grid(row=1, column=1, pady=5)
+        ttk.Button(right, text="→", width=5, command=lambda: self.rot.move(ROTCTL.RIGHT, speed)).grid(row=1, column=2, padx=5)
+        ttk.Button(right, text="↓", width=5, command=lambda: self.rot.move(ROTCTL.DOWN, speed)).grid(row=2, column=1, pady=5)
+
+    def _update_loop(self):
+        while self._running:
+            try:
+                az, el = tools.parse_pos(self.rot.get_pos())
+
+                self.after(0, self._update_display, az, el)
+            except Exception:
+                pass
+            time.sleep(1.0)
+
+    def _update_display(self, az, el):
+        self.az_label.config(text=f"{az:.1f}°")
+        self.el_label.config(text=f"{el:.1f}°")
+
+    def on_close(self):
+        self._running = False
+        try:
+            self.rot.close()
+        except Exception:
+            pass
+        self.destroy()
+
+
+if __name__ == "__main__":
+    app = RotatorGUI(model=1, device="/dev/tty.usbserial-XXXXX")
+    app.protocol("WM_DELETE_WINDOW", app.on_close)
+    app.mainloop()
