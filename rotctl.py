@@ -37,6 +37,7 @@ a: d_sp2d_lp   (Short Path km)
 """
 
 import pexpect
+import time
 
 class ROTCTL:
 
@@ -87,7 +88,12 @@ class ROTCTL:
         Note: If the rotator does not support setting elevation (most do not) supply “0.0” for 'Elevation'.
         """
         try:
-            return self.send(f"P {az} {el}")
+            a = self.send(f"P {az} {el}")
+            print(tools.dist4tuple((az,el), tools.parse_pos(self.get_pos())))
+            while tools.dist4tuple((az,el), tools.parse_pos(self.get_pos())) > self.EPS:
+                time.sleep(0.1)
+            self.stop()
+            return a
         except Exception:
             return False
         
@@ -112,7 +118,7 @@ class ROTCTL:
         try:
             start_pos = tools.parse_pos(self.get_pos())
             a = self.send(f"M {dir} {speed}")
-            while tools.dist4tuple(start_pos, tools.parse_pos(self.get_pos())) < self.EPS:
+            while tools.dist4tuple(start_pos, tools.parse_pos(self.get_pos())) > self.EPS:
                 pass
             self.stop()
             return a

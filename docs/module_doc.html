@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ROTCTL_CC Module Documentation</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; max-width: 900px; }
+    pre { background:#f6f8fa; padding:10px; border-radius:4px; overflow:auto }
+    h1,h2,h3 { color:#222 }
+    .signature { font-family: monospace; color:#1a1a1a }
+    .doc { margin-bottom:1.2rem }
+    .file-block { margin-bottom:2.2rem; padding-bottom:1rem; border-bottom:1px solid #ddd }
+  </style>
+</head>
+<body>
+  <h1>ROTCTL_CC — Module Documentation</h1>
+  <p>Auto-generated summary of the module docstrings and public classes/functions in this repository.</p>
+
+  <div class="file-block">
+    <h2>File: rotctl.py</h2>
+    <h3>Module description</h3>
+    <pre class="doc"> Alexandre Hachet
+
+Classe qui fait l'interface entre python et la librairie ROTCTL.
+Documentation reprise depuis celle de la librairie ROTCTL.
+
+Commands (some may not be available for this rotator):
+P: set_pos     (Azimuth, Elevation)
+p: get_pos     ()
+K: park        ()
+S: stop        ()
+R: reset       (Reset)
+M: move        (Direction, Speed)
+V: set_level   (Level, Level Value)
+v: get_level   (Level)
+U: set_func    (Func, Func Status)
+u: get_func    (Func)
+X: set_parm    (Parm, Parm Value)
+x: get_parm    (Parm)
+C: set_conf    (Token, Value)
+_: get_info    ()
+s: get_status  ()
+w: send_cmd    (Cmd)
+1: dump_caps   ()
+3: dump_conf   ()
+?: dump_state  ()
+L: lonlat2loc  (Longitude, Latitude, Loc Len [2-12])
+l: loc2lonlat  (Locator)
+D: dms2dec     (Degrees, Minutes, Seconds, S/W)
+d: dec2dms     (Dec Degrees)
+E: dmmm2dec    (Degrees, Dec Minutes, S/W)
+e: dec2dmmm    (Dec Deg)
+B: qrb         (Lon 1, Lat 1, Lon 2, Lat 2)
+A: a_sp2a_lp   (Short Path Deg)
+a: d_sp2d_lp   (Short Path km)
+?: pause       (Seconds)
+?: get_conf    (Token)
+    </pre>
+
+    <h3>Class: ROTCTL</h3>
+    <p class="signature">class ROTCTL(model=1, device="/dev/ttyUSB0", timeout=3)</p>
+    <div class="doc">
+      <strong>Purpose:</strong> Interface between Python and the external <code>rotctl</code> program, exposing commands such as <code>set_pos</code>, <code>get_pos</code>, <code>move</code>, <code>stop</code>, and utility conversion functions.
+    </div>
+
+    <h4>Key methods (signature and docstring)</h4>
+    <p class="signature">send(self, command, timeout=3)</p>
+    <pre class="doc">Send messages through the child process.</pre>
+
+    <p class="signature">set_pos(self, az, el)</p>
+    <pre class="doc">Set position.
+'Azimuth' and 'Elevation' are floating point values.
+Azimuth can be -180 to 540 depending on the rotator to allow for rotators facing south and the capabilities of the rotator.
+Elevation can be -20 to 210 depending on the rotator.
+For example:
+P 163.0 41.0
+Note: If the rotator does not support setting elevation (most do not) supply “0.0” for 'Elevation'.
+    </pre>
+
+    <p class="signature">get_pos(self)</p>
+    <pre class="doc">Get position. Returns Azimuth and Elevation as floating point values. Format: Azimuth: (value)\r\nElevation: (value)</pre>
+
+    <p class="signature">move(self, dir, speed)</p>
+    <pre class="doc">Move the rotator in a specific direction at the given rate. Direction uses constants defined on the class (UP, DOWN, LEFT, RIGHT).</pre>
+
+    <p class="signature">stop(self)</p>
+    <pre class="doc">Stop the rotator.</pre>
+
+    <p class="signature">park(self)</p>
+    <pre class="doc">Park the rotator.</pre>
+
+    <p class="signature">_get_info(self)</p>
+    <pre class="doc">Get miscellaneous information about the rotator. Returns model info.</pre>
+
+    <p class="signature">exit(self)</p>
+    <pre class="doc">Exit rotctl interactive mode and close the child process.</pre>
+
+    <h3>Class: tools</h3>
+    <p class="signature">class tools</p>
+    <p class="signature">parse_pos(res) -> (az, el)</p>
+    <pre class="doc">Parses the response from <code>get_pos</code> and returns a tuple of two floats: (azimuth, elevation).</pre>
+
+    <p class="signature">dist4tuple(a, b)</p>
+    <pre class="doc">Computes distance between two (az, el) tuples.
+    Note: numeric expression in source may have incorrect operator precedence; see source for details.</pre>
+  </div>
+
+  <div class="file-block">
+    <h2>File: follow.py</h2>
+    <h3>Module description</h3>
+    <pre class="doc"> Alexandre Hachet
+
+Classe qui prend en argument une suite de positions (azimuth, élévation) en fonction du temps
+pour que l'antenne suive un objet (typiquement satellite)
+    </pre>
+
+    <h3>Class: Follow</h3>
+    <p class="signature">class Follow(pos, rot)</p>
+    <p class="doc">Construct with telemetry/position data and a <code>ROTCTL</code> instance.</p>
+
+    <p class="signature">_posfromtxt(file)</p>
+    <pre class="doc">Static method that reads a tab-separated file and returns (T, AZ, EL) lists.</pre>
+
+    <p class="signature">_follow(self)</p>
+    <pre class="doc">Iterates through provided positions and commands the rotator to go to each position using <code>rot.set_pos</code>.</pre>
+  </div>
+
+  <div class="file-block">
+    <h2>File: gui.py</h2>
+    <h3>Class: RotatorGUI</h3>
+    <p class="signature">class RotatorGUI(tk.Tk)</p>
+    <pre class="doc">A simple Tkinter-based GUI to control a <code>ROTCTL</code> instance. Provides fields for azimuth/elevation, send button, manual move buttons and a background update loop to read current position.</pre>
+
+    <h4>Usage</h4>
+    <pre class="doc">Run the GUI directly: python gui.py
+It creates an instance with default model=1 and device='/dev/ttyUSB0' (override as needed).</pre>
+  </div>
+
+  <hr />
+  <p><strong>Notes & next steps</strong>:
+  - This page is a simple, static aggregation of module docstrings. For a richer API reference consider using <code>pydoc</code> or Sphinx to build full HTML docs programmatically.
+  - To open this file in your browser run: <code>open docs/module_doc.html</code> from the project root on macOS.</p>
+</body>
+</html>
