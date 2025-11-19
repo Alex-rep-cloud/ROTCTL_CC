@@ -40,17 +40,18 @@ class RotatorGUI(tk.Tk):
         self.el_label = ttk.Label(left, text="Lecture: 0.0°", font=("Arial", 10))
         self.el_label.grid(row=1, column=2, padx=10)
 
-        ttk.Button(left, text="Envoyer position", command=lambda: self.rot.set_pos(self.az_var.get(), self.el_var.get())).grid(row=2, column=0, columnspan=3, pady=20, sticky="ew")
+        self.send_btn = ttk.Button(left, text="Envoyer position", command=lambda: threading.Thread(target=self._send_pos, daemon=True).start())
+        self.send_btn.grid(row=2, column=0, columnspan=3, pady=20, sticky="ew")
 
         right = ttk.Frame(frm)
         right.grid(row=0, column=1, padx=20, sticky="nsew")
 
         speed = 5.0
-        ttk.Button(right, text="↑", width=5, command=lambda: self.rot.move(ROTCTL.UP, speed)).grid(row=0, column=1, pady=5)
-        ttk.Button(right, text="←", width=5, command=lambda: self.rot.move(ROTCTL.LEFT, speed)).grid(row=1, column=0, padx=5)
-        ttk.Button(right, text="Stop", width=5, command=self.rot.stop).grid(row=1, column=1, pady=5)
-        ttk.Button(right, text="→", width=5, command=lambda: self.rot.move(ROTCTL.RIGHT, speed)).grid(row=1, column=2, padx=5)
-        ttk.Button(right, text="↓", width=5, command=lambda: self.rot.move(ROTCTL.DOWN, speed)).grid(row=2, column=1, pady=5)
+        ttk.Button(right, text="↑", width=5, command=lambda: threading.Thread(target=self.rot.move, args=(ROTCTL.UP, speed), daemon=True).start()).grid(row=0, column=1, pady=5)
+        ttk.Button(right, text="←", width=5, command=lambda: threading.Thread(target=self.rot.move, args=(ROTCTL.LEFT, speed), daemon=True).start()).grid(row=1, column=0, padx=5)
+        ttk.Button(right, text="Stop", width=5, command=lambda: threading.Thread(target=self.rot.stop, daemon=True).start()).grid(row=1, column=1, pady=5)
+        ttk.Button(right, text="→", width=5, command=lambda: threading.Thread(target=self.rot.move, args=(ROTCTL.RIGHT, speed), daemon=True).start()).grid(row=1, column=2, padx=5)
+        ttk.Button(right, text="↓", width=5, command=lambda: threading.Thread(target=self.rot.move, args=(ROTCTL.DOWN, speed), daemon=True).start()).grid(row=2, column=1, pady=5)
 
     def _update_loop(self):
         while self._running:
@@ -61,6 +62,25 @@ class RotatorGUI(tk.Tk):
             except Exception:
                 pass
             time.sleep(1.0)
+
+    def _send_pos(self):
+        """Background worker to send a position to the rotator without blocking the UI."""
+        try:
+            # disable send button while command runs
+            try:
+                self.send_btn.config(state="disabled")
+            except Exception:
+                pass
+
+            az = self.az_var.get()
+            el = self.el_var.get()
+            # call the blocking set_pos in this background thread
+            self.rot.set_pos(az, el)
+        finally:
+            try:
+                self.send_btn.config(state="normal")
+            except Exception:
+                pass
 
     def _update_display(self, az, el):
         self.az_label.config(text=f"{az:.1f}°")
