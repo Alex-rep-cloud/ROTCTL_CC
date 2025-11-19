@@ -38,6 +38,7 @@ a: d_sp2d_lp   (Short Path km)
 
 import pexpect
 import time
+import math
 
 class ROTCTL:
 
@@ -294,4 +295,5 @@ class tools:
     
     @staticmethod
     def dist4tuple(a, b):
-        return ((a[0] - b[0])**2 + (a[1] - b[1])**2)**1/2
+        # use math.hypot for a correct Euclidean distance (avoid operator-precedence bugs)
+        return math.hypot(a[0] - b[0], a[1] - b[1])
