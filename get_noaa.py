@@ -1,5 +1,5 @@
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 
 class SatelliteTracker:
     id = "54234"
@@ -32,7 +32,7 @@ class SatelliteTracker:
                 azimuth = closest[3]
                 elevation = closest[4]
                 timestamp = closest[9]
-                readable_time = datetime.utcfromtimestamp(int(timestamp)).strftime("%Y-%m-%d %H:%M:%S UTC")
+                readable_time = datetime.fromtimestamp(int(timestamp), tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
                 return {
                     "time": readable_time,
@@ -46,6 +46,6 @@ class SatelliteTracker:
     
     @staticmethod
     def getPos():
-        return SatelliteTracker.fetch_positions(int(datetime.utcnow().timestamp()))
+        return SatelliteTracker.fetch_positions(int(datetime.now(timezone.utc).timestamp()))
     
 print(SatelliteTracker.getPos())
