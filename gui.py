@@ -57,8 +57,7 @@ class RotatorGUI(tk.Tk):
         while self._running:
             try:
                 az, el = tools.parse_pos(self.rot.get_pos())
-
-                self.after(0, self._update_display, az, el)
+                self._update_display(az, el)
             except Exception:
                 pass
             time.sleep(1.0)
@@ -74,7 +73,6 @@ class RotatorGUI(tk.Tk):
 
             az = self.az_var.get()
             el = self.el_var.get()
-            # call the blocking set_pos in this background thread
             self.rot.set_pos(az, el)
         finally:
             try:

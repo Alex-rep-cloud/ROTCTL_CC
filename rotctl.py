@@ -90,7 +90,6 @@ class ROTCTL:
         """
         try:
             a = self.send(f"P {az} {el}")
-            print(tools.dist4tuple((az,el), tools.parse_pos(self.get_pos())))
             while tools.dist4tuple((az,el), tools.parse_pos(self.get_pos())) > self.EPS:
                 time.sleep(0.1)
             self.stop()
