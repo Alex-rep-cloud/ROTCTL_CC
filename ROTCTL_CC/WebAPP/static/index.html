@@ -1,0 +1,133 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Rotor Control</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    .row { display: flex; gap: 1rem; margin: 1rem 0; }
+    label { width: 8rem; display: inline-block; }
+    input { width: 8rem; padding: .4rem; }
+    button { padding: .5rem 1rem; }
+    .card { border: 1px solid #ddd; padding: 1rem; border-radius: .5rem; }
+  </style>
+</head>
+<body>
+  <h1>Rotor Control</h1>
+
+  <div class="card">
+    <h2>Live Status</h2>
+    <p>Azimuth: <strong id="az">—</strong>° &nbsp; Elevation: <strong id="el">—</strong>°</p>
+    <button id="refresh">Refresh</button>
+  </div>
+
+  <div class="card">
+    <h2>Polar Position</h2>
+    <div id="plot" style="width:600px;height:600px;"></div>
+    <p style="font-size:.9rem;color:#666">Polar plot: angle = azimuth (°) — 0° at North, clockwise. Radius = elevation (°)</p>
+  </div>
+
+  <div class="card">
+    <h2>Set Position</h2>
+    <div class="row">
+      <label for="setAz">Azimuth (°)</label>
+      <input id="setAz" type="number" step="0.1" value="0" />
+    </div>
+    <div class="row">
+      <label for="setEl">Elevation (°)</label>
+      <input id="setEl" type="number" step="0.1" value="0" />
+    </div>
+    <div class="row">
+      <button id="apply">Rotate</button>
+      <button id="park">Park (0°, 0°)</button>
+    </div>
+    <p id="msg"></p>
+  </div>
+
+  <!-- Plotly for polar plotting -->
+  <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+  <script>
+    const API = location.origin.replace(/\/$/, ""); // assume same host/port
+    const azEl = (data) => {
+      if (typeof data.az !== "undefined") document.getElementById("az").textContent = (+data.az).toFixed(1);
+      if (typeof data.el !== "undefined") document.getElementById("el").textContent = (+data.el).toFixed(1);
+    };
+
+    async function refresh() {
+      const r = await fetch(`${API}/status`);
+      const data = await r.json();
+      azEl(data);
+    }
+
+    async function rotate() {
+      const az = parseFloat(document.getElementById("setAz").value);
+      const el = parseFloat(document.getElementById("setEl").value);
+      const r = await fetch(`${API}/rotate`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ az, el })
+      });
+      const data = await r.json();
+      document.getElementById("msg").textContent = `Requested ${az}°, ${el}°. Actual: ${(+data.actual.az).toFixed(1)}°, ${(+data.actual.el).toFixed(1)}°.`;
+      azEl(data.actual);
+    }
+
+    async function park() {
+      const r = await fetch(`${API}/park`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(0) // simple body; server reads Body(0.0)
+      });
+      const data = await r.json();
+      document.getElementById("msg").textContent = `Parked to ${(+data.parked_to.az).toFixed(1)}°, ${(+data.parked_to.el).toFixed(1)}°.`;
+      refresh();
+    }
+
+    // Wire buttons
+    document.getElementById("refresh").onclick = refresh;
+    document.getElementById("apply").onclick = rotate;
+    document.getElementById("park").onclick = park;
+
+    // Initialize Plotly polar scatter for antenna position
+    const plotDiv = document.getElementById('plot');
+    const plotData = [{
+      type: 'scatterpolar',
+      mode: 'markers',
+      r: [0],
+      theta: [0],
+      marker: { size: 12, color: 'red' },
+      name: 'Antenna'
+    }];
+    const layout = {
+      polar: {
+        radialaxis: { range: [0, 90], tickvals: [0,30,60,90], ticktext: ['0°','30°','60°','90°'] },
+        angularaxis: { rotation: 0, direction: 'clockwise' }
+      },
+      showlegend: false,
+      title: 'Antenna Position (polar)'
+    };
+    Plotly.newPlot(plotDiv, plotData, layout, {responsive: true});
+
+    function updatePlot(az, el) {
+      // Plotly expects theta in degrees; we want 0° at North. rotation=0 with direction 'clockwise' gives 0° at East by default,
+      // so rotate by 90 degrees to place 0° at North.
+      const theta = (az + 90) % 360;
+      Plotly.update(plotDiv, { r: [[el]], theta: [[theta]] });
+    }
+
+    // Live updates via WebSocket
+    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.type === 'status') {
+          azEl(data);
+          updatePlot(data.az, data.el);
+        }
+      } catch (e) { console.warn(e); }
+    };
+    ws.onopen = () => refresh();
+  </script>
+</body>
+</html>
